@@ -9,5 +9,4 @@ fn main() {
     native_options.initial_window_size = Some(Vec2::new(850., 560.));
     eframe::run_native(Box::new(app), native_options)
 
-
 }
