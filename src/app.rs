@@ -1,19 +1,22 @@
 use std::borrow::Cow;
 
 use eframe::epi;
-use egui::{Color32, CtxRef, FontData, FontDefinitions, FontFamily, RichText, Ui, Layout, TextStyle, Label, Button, Visuals};
+use egui::{Color32, CtxRef, FontData, FontDefinitions, FontFamily, RichText, Ui, Layout, TextStyle, Label, Button, Visuals, Style, Frame, Stroke};
+use egui::WidgetType::CollapsingHeader;
+use egui::style::Widgets;
 
 
 const SEMI_WHITE: Color32 = Color32::from_rgb(200, 255, 255);
 
-pub struct HeadlinesConfig {
-    theme_mode: bool,
+// simple config struct
+pub struct AppConfig {
+    dark_mode: bool,
 }
 
-impl HeadlinesConfig {
+impl AppConfig {
     fn new() -> Self {
-        HeadlinesConfig {
-            theme_mode: true,
+        AppConfig {
+            dark_mode: true,
         }
     }
 }
@@ -23,8 +26,9 @@ impl HeadlinesConfig {
 #[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
 pub struct SnowApp {
     label: String,
+    // an empty label for text inputs?
     empty_label: String,
-    config: HeadlinesConfig,
+    config: AppConfig,
 }
 
 impl Default for SnowApp {
@@ -32,7 +36,7 @@ impl Default for SnowApp {
         Self {
             label: "Hello snowy world!".to_owned(),
             empty_label: "".to_owned(),
-            config: HeadlinesConfig::new(),
+            config: AppConfig::new(),
         }
     }
 }
@@ -41,33 +45,49 @@ impl epi::App for SnowApp {
     // everything here gets rendered all the time
     fn update(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
 
-        if self.config.theme_mode {
-            ctx.set_visuals(Visuals::dark())
-        } else {
-            ctx.set_visuals(Visuals::light())
+        // create Visuals object
+        let mut visuals = Visuals {
+            .. if self.config.dark_mode {Visuals::dark()} else {Visuals::light()}
+        };
+        // change bg and other stuff depending onf theme mode
+        match self.config.dark_mode {
+            true => {
+                visuals.widgets.noninteractive.bg_fill = Color32::from_rgb(50, 50, 50);
+                ctx.set_visuals(visuals);},
+            false => {
+                visuals.widgets.noninteractive.bg_fill = Color32::from_rgb(255, 251, 240);
+                ctx.set_visuals(visuals);}
         }
 
+        // call top panel render
         self.render_top_panel(ctx, frame);
 
         egui::SidePanel::left("left-panel!").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.colored_label(
-                    if self.config.theme_mode {Color32::LIGHT_BLUE} else {Color32::BLACK},
+                    if self.config.dark_mode {Color32::LIGHT_BLUE} else {Color32::BLACK},
                     "Bookmarks");
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if !self.config.theme_mode {
-                ui.visuals_mut().extreme_bg_color = Color32::LIGHT_BLUE;
-            }
+        egui::CentralPanel::default().frame(
+            Frame::default().fill({if !self.config.dark_mode {
+                Color32::from_rgb(239, 246, 255)
+            }else {
+                Color32::from_rgb(20, 20, 22)
+            }})
+        ).show(ctx, |ui| {
+            ui.add_space(5.);
+            ui.indent("" ,|ui| {
+                ui.add(egui::widgets::ProgressBar::new(10.))
+            });
             ui.heading(RichText::new("Hello snowy world!").color(
-                match self.config.theme_mode {
+                match self.config.dark_mode {
                     true => Color32::WHITE,
                     false => Color32::BLACK,
             }));
             ui.add_space(10.);
-            self.url_input(ctx, ui);
+            // self.url_input(ctx, ui);
         });
     }
 
@@ -86,6 +106,7 @@ impl epi::App for SnowApp {
 }
 
 impl SnowApp {
+
     fn render_top_panel(&mut self, ctx: &CtxRef, frame: &epi::Frame) {
         egui::TopBottomPanel::top("header").show(ctx, |ui| {
             ui.add_space(4.);
@@ -121,8 +142,8 @@ impl SnowApp {
 
                     //add logic to the theme button
                     if theme_btn.clicked() {
-                        self.config.theme_mode = !self.config.theme_mode;
-                        dbg!(self.config.theme_mode);
+                        self.config.dark_mode = !self.config.dark_mode;
+                        dbg!(self.config.dark_mode);
                     };
                 })
             });
