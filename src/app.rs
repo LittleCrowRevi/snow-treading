@@ -1,11 +1,9 @@
 use std::borrow::Cow;
 
-use eframe::egui::{Button, Color32, Context, Direction, FontData, FontDefinitions, FontFamily, Frame, Label,
-                   Layout, RichText, TextStyle, TopBottomPanel, Ui, Visuals, FontId, Separator};
+use eframe::egui::{Button, Color32, Context, Direction, FontData, FontDefinitions, FontFamily, Frame, Label, Layout, RichText, TextStyle, TopBottomPanel, Ui, Visuals, FontId, TextBuffer, Stroke};
 use eframe::epi;
 use epi::App;
-use egui::{Slider, Vec2, ScrollArea};
-use std::collections::HashMap;
+use egui::{Slider, ScrollArea};
 use snow_treading::{load_notes, Note};
 
 const SEMI_WHITE: Color32 = Color32::from_rgb(200, 255, 255);
@@ -30,7 +28,7 @@ pub struct SnowApp {
     empty_label: String,
     config: AppConfig,
     progress_bar: f32,
-    notes: HashMap<i32, Note>,
+    notes: Vec<Note>,
 }
 
 impl Default for SnowApp {
@@ -52,7 +50,9 @@ impl App for SnowApp {
         // inherits all the default values from dark and light based on theme mode
         // ease of changing default visuals this way
         let mut visuals = Visuals {
-            ..if self.config.dark_mode {Visuals::dark()} else {Visuals::light()} };
+
+            ..if self.config.dark_mode {Visuals::dark()} else {Visuals::light()}
+        };
 
         // change bg-color and other stuff depending onf theme mode
         match self.config.dark_mode {
@@ -61,7 +61,7 @@ impl App for SnowApp {
                 ctx.set_visuals(visuals);
             }
             false => {
-                visuals.widgets.noninteractive.bg_fill = Color32::from_rgb(255, 251, 246);
+                visuals.widgets.noninteractive.bg_fill = Color32::from_rgb(249, 249, 244);
                 visuals.override_text_color = Some(Color32::from_rgb(0, 0, 0));
                 ctx.set_visuals(visuals);
             }
@@ -70,8 +70,10 @@ impl App for SnowApp {
         // call top panel render
         self.render_top_panel(ctx, frame);
 
+        // side panel containing quick access to recent or bookmarked notes TODO: add timestamps and sort
         self.render_bookmarks_panel(ctx);
 
+        // TODO: EVERYTHING
         self.center_panel_render(ctx);
     }
 
@@ -153,23 +155,39 @@ impl SnowApp {
     fn render_bookmarks_panel(&mut self, ctx: &Context) {
         // let side panel for the note bookmarks (for now?)
         egui::SidePanel::left("left-panel!").show(ctx, |ui| {
+            ui.set_min_width(130.);
+
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Bookmarks".to_owned()).color(
-                    if self.config.dark_mode { Color32::LIGHT_BLUE } else { Color32::BLACK }).heading()
+                    if self.config.dark_mode { Color32::from_rgb(100, 100, 100) } else { Color32::BLACK }).heading()
                 )
             });
             ui.add_space(5.);
 
             // scroll are for the actual bookmarks
             ScrollArea::vertical().show(ui, |ui| {
-                ui.set_min_width(100.);
-                for i in &self.notes {
-                    ui.add(Separator::default());
-                    ui.add_space(3.);
-                    let text = format!(" Note [{}]", i.1.title);
-                    ui.label(RichText::new(text));
-                    ui.add_space(5.);
 
+                // iterate and add the notes
+                for i in &mut self.notes {
+                    let scroll_note = ui.add_enabled_ui(true, |ui| {
+                        // sets the colors of the indent/separator to fit the current note
+                        ui.visuals_mut().widgets.noninteractive.bg_stroke = Stroke::new(2.3, i.get_note_color());
+
+                        ui.separator();
+                        ui.add_space(3.);
+                        // adds the note title
+                        ui.indent("note_title", |ui| {
+                            ui.text_edit_singleline(&mut i.title)
+                        });
+                        // adds partially the content for display
+                        let content = format!("{}...", i.text.char_range(0..80));
+                        ui.selectable_label(false, RichText::new(content).size(13.));
+
+                        ui.add_space(5.);
+                    });
+
+                    scroll_note.response
+                        .on_hover_text(RichText::new("A Note!"));
                 }
             });
         });
