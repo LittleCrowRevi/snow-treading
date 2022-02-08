@@ -1,2 +1,9 @@
 # snow-treading
-A simple GUI project
+A simple Application written in egui.
+For now only supports keeping notes...
+
+# TO-DO
+```
+- Add function to read a directory and sort files as specified
+    ↳ show and delete duplicates
+- ....
