@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
-use eframe::egui::{Button, Color32, Context, Direction, FontData, FontDefinitions, FontFamily, Frame, Label, Layout, RichText, TextStyle, TopBottomPanel, Ui, Visuals, FontId, TextBuffer, Stroke, Vec2, Rgba};
+use eframe::egui::{Button, Color32, Context, Direction, FontData, FontDefinitions, FontFamily, Frame, Label, Layout, RichText, TextStyle, TopBottomPanel, Ui, Visuals, FontId, TextBuffer, Stroke, Vec2, Rgba, Window};
 use eframe::epi;
 use epi::App;
 use egui::{Slider, ScrollArea};
@@ -14,18 +14,20 @@ use snow_treading::{Note, load_file, save_file};
 #[derive(Serialize, Deserialize)]
 pub struct AppConfig {
     dark_mode: bool,
+    bookmark_panel: bool
 }
 
 impl AppConfig {
     fn new() -> Self {
-        AppConfig { dark_mode: true }
+        AppConfig { dark_mode: true, bookmark_panel: true }
     }
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            dark_mode: true
+            dark_mode: true,
+            bookmark_panel: true
         }
     }
 }
@@ -40,6 +42,8 @@ pub struct SnowApp {
     config: AppConfig,
     progress_bar: f32,
     notes: Vec<Note>,
+    config_window: bool,
+    note_edit_screen: bool
 }
 
 impl App for SnowApp {
@@ -67,6 +71,10 @@ impl App for SnowApp {
             }
         }
 
+        if self.note_edit_screen {
+            self.note_window(ctx);
+        }
+
         // call top panel render
         self.render_top_panel(ctx, frame);
 
@@ -85,7 +93,7 @@ impl App for SnowApp {
     }
 
     fn name(&self) -> &str {
-        "Snow's Window"
+        "Snow Window"
     }
 
     fn auto_save_interval(&self) -> Duration {
@@ -96,16 +104,19 @@ impl App for SnowApp {
 
 impl SnowApp {
 
+
     pub fn new() -> SnowApp {
 
-        let config: AppConfig = confy::load("SnowApp").unwrap_or_default();
+        let config: AppConfig = confy::load("Snow Window").unwrap_or_default();
 
         SnowApp {
             label: "Hello snowy world!".to_owned(),
             empty_label: "".to_owned(),
             config,
             progress_bar: 0.0,
-            notes: load_file("data")
+            notes: load_file("data"),
+            config_window: false,
+            note_edit_screen: false,
         }
     }
 
@@ -120,11 +131,19 @@ impl SnowApp {
                     ui.add(Label::new(
                         RichText::new("❄").text_style(TextStyle::Heading).strong(),
                     ));
+
+                    // button for hiding(showing?) the bookmarks side panel
+                    let bookmarks_btn = ui.add(Button::new(RichText::new("=").strong().heading()))
+                        .on_hover_text(RichText::new(if self.config.bookmark_panel {"Hide Bookmarks"} else {"Show Bookmarks"}));
+                    if bookmarks_btn.clicked() {
+                        self.config.bookmark_panel = !self.config.bookmark_panel;
+                        self.store_confy();
+                    }
                 });
 
                 // add top bar title string
                 ui.with_layout(
-                    Layout::centered_and_justified(Direction::LeftToRight),
+                    Layout::centered_and_justified(Direction::RightToLeft),
                     |ui| {
                         ui.add(Label::new(
                             RichText::new("Hello, snowy world!")
@@ -164,9 +183,7 @@ impl SnowApp {
                     //add logic to the theme button
                     if theme_btn.clicked() {
                         self.config.dark_mode = !self.config.dark_mode;
-                        confy::store("SnowApp", AppConfig {
-                            dark_mode: self.config.dark_mode
-                        });
+                        self.store_confy();
                         dbg!(self.config.dark_mode);
                     };
                 })
@@ -179,46 +196,48 @@ impl SnowApp {
     fn render_bookmarks_panel(&mut self, ctx: &Context) {
 
         // let side panel for the note bookmarks (for now?)
-        egui::SidePanel::left("left-panel!").show(ctx, |ui| {
-            ui.set_min_width(140.);
+        if self.config.bookmark_panel {
+            egui::SidePanel::left("left-panel!").show(ctx, |ui| {
+                ui.set_min_width(140.);
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Bookmarks".to_owned()).color(
+                        if self.config.dark_mode { Color32::from_rgb(100, 100, 100) } else { Color32::BLACK }).heading()
+                    );
+                    ui.add_space(5.);
+                });
+                ui.add_space(5.);
 
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("Bookmarks".to_owned()).color(
-                    if self.config.dark_mode { Color32::from_rgb(100, 100, 100) } else { Color32::BLACK }).heading()
-                )
-            });
-            ui.add_space(5.);
+                // scroll are for the actual bookmarks
+                ScrollArea::vertical().show(ui, |ui| {
 
-            // scroll are for the actual bookmarks
-            ScrollArea::vertical().show(ui, |ui| {
-
-                // iterate and add the notes
-                for i in 0..self.notes.len() {
-                    let scroll_note = ui.add_enabled_ui(true, |ui| {
-                        // sets the colors of the indent/separator to fit the current note
-                        ui.visuals_mut().widgets.noninteractive.bg_stroke = Stroke::new(2.3, self.notes[i].get_note_color());
-
-                        ui.separator();
-                        ui.add_space(3.);
-                        // adds the note title
-                        ui.indent("note_title", |ui| {
-                            let title_edit = ui.text_edit_singleline(&mut self.notes[i].title);
-                            if title_edit.lost_focus() && ctx.input().key_pressed(eframe::egui::Key::Enter) {
-                                save_file("data", &mut self.notes);
-                            }
+                    // iterate and add the notes
+                    for i in 0..self.notes.len() {
+                        let scroll_note = ui.add_enabled_ui(true, |ui| {
+                            // sets the colors of the indent/separator to fit the current note
+                            ui.visuals_mut().widgets.noninteractive.bg_stroke = Stroke::new(2.3, self.notes[i].get_note_color());
+                            ui.separator();
+                            ui.add_space(3.);
+                            // adds the note title
+                            ui.indent("note_title", |ui| {
+                                let title_edit = ui.text_edit_singleline(&mut self.notes[i].title);
+                                if title_edit.lost_focus() && ctx.input().key_pressed(eframe::egui::Key::Enter) {
+                                    save_file("data", &mut self.notes);
+                                }
+                            });
+                            // adds partially the content for display
+                            let content = format!("{}...", self.notes[i].text.char_range(0..80));
+                            // if clicking on this, opens up a pop-up for editing the note
+                            let note_window = ui.selectable_label(false, RichText::new(content).size(13.));
+                            ui.add_space(5.);
                         });
-                        // adds partially the content for display
-                        let content = format!("{}...", self.notes[i].text.char_range(0..80));
-                        let note_window = ui.selectable_label(false, RichText::new(content).size(13.));
 
-                        ui.add_space(5.);
-                    });
-
-                    scroll_note.response
-                        .on_hover_text(RichText::new("A Note!"));
-                }
+                        scroll_note.response
+                            .on_hover_text(RichText::new("A Note!"));
+                    }
+                });
             });
-        });
+        }
+
     }
 
     fn center_panel_render(&mut self, ctx: &Context) {
@@ -232,27 +251,29 @@ impl SnowApp {
                 }
             }))
             .show(ctx, |ui| {
+                ui.add_space(15.);
+                ui.horizontal_top(|ui| {
+                   ui.add_space(15.);
 
-                // padding
-                ui.add_space(5.);
+                    // button for creating a new note
+                    let add_note_btn = ui
+                        .add(Button::new(RichText::new("+ Create Note")
+                            .strong()
+                            .heading()
+                            .size(15.)));
+                    if add_note_btn.clicked() {
+                        self.note_edit_screen = true;
+                    }
+                });
 
-                // simple progress bar for test purposes
-                let bar = egui::widgets::ProgressBar::new(self.progress_bar).animate(true);
-                ui.indent("", |ui| ui.add(bar));
-                ui.add_space(10.);
-                // button to increment the bar
-                let progress_btn = ui.add(Button::new(RichText::new("+10%")));
-                if progress_btn.clicked() {
-                    self.progress_bar += 0.1;
-                }
-                // slider for the progress bar
-                let slider = ui.add(Slider::new(&mut self.progress_bar, 0.0..=1.0));
-                // self.url_input(ctx, ui);
             });
     }
 
-    fn note_window(&mut self, ctx: Context, ui: &mut Ui) {
-
+    // TODO: Fix resizing; add fields
+    fn note_window(&mut self, ctx: &Context) {
+        Window::new("Edit Note").resizable(true).show(ctx, |ui| {
+            ui.add(Label::new("Creation of new notes!"));
+        });
 
     }
 
@@ -294,5 +315,13 @@ impl SnowApp {
              .insert(0, "inglobal".to_owned());
 
         ctx.set_fonts(font_def);
+    }
+
+    /// Simple convenience function for quickly saving the app state.
+    pub fn store_confy(&mut self) {
+        confy::store(self.name(), AppConfig {
+            dark_mode: self.config.dark_mode,
+            bookmark_panel: self.config.bookmark_panel
+        });
     }
 }

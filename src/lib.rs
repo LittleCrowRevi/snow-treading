@@ -4,6 +4,7 @@ use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
 use std::fs::File;
 use std::io::{BufReader, Error, BufWriter, Write};
+use eframe::epi::App;
 
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -55,4 +56,5 @@ pub fn save_file<T: Serialize>(file: &str, data: T) -> Result<(), Error> {
     serde_json::to_writer_pretty(writer, &data);
     Ok(())
 }
+
 
