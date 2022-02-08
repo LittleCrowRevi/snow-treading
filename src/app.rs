@@ -1,14 +1,17 @@
 use std::borrow::Cow;
 
-use eframe::egui::{Button, Color32, Context, Direction, FontData, FontDefinitions, FontFamily, Frame, Label, Layout, RichText, TextStyle, TopBottomPanel, Ui, Visuals, FontId, TextBuffer, Stroke};
+use serde::{Deserialize, Serialize};
+use eframe::egui::{Button, Color32, Context, Direction, FontData, FontDefinitions, FontFamily, Frame, Label, Layout, RichText, TextStyle, TopBottomPanel, Ui, Visuals, FontId, TextBuffer, Stroke, Vec2, Rgba};
 use eframe::epi;
 use epi::App;
 use egui::{Slider, ScrollArea};
-use snow_treading::{load_notes, Note};
+use eframe::epi::Storage;
+use std::time::Duration;
+use snow_treading::{Note, load_file, save_file};
 
-const SEMI_WHITE: Color32 = Color32::from_rgb(200, 255, 255);
 
 // simple config struct
+#[derive(Serialize, Deserialize)]
 pub struct AppConfig {
     dark_mode: bool,
 }
@@ -16,6 +19,14 @@ pub struct AppConfig {
 impl AppConfig {
     fn new() -> Self {
         AppConfig { dark_mode: true }
+    }
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            dark_mode: true
+        }
     }
 }
 
@@ -31,19 +42,8 @@ pub struct SnowApp {
     notes: Vec<Note>,
 }
 
-impl Default for SnowApp {
-    fn default() -> Self {
-        Self {
-            label: "Hello snowy world!".to_owned(),
-            empty_label: "".to_owned(),
-            config: AppConfig::new(),
-            progress_bar: 0.0,
-            notes: load_notes()
-        }
-    }
-}
-
 impl App for SnowApp {
+
     // everything here gets rendered all the time
     fn update(&mut self, ctx: &Context, frame: &epi::Frame) {
         // create Visuals object
@@ -81,12 +81,33 @@ impl App for SnowApp {
         self.configure_fonts(ctx);
     }
 
+    fn on_exit(&mut self) {
+    }
+
     fn name(&self) -> &str {
         "Snow's Window"
     }
+
+    fn auto_save_interval(&self) -> Duration {
+        Duration::new(300, 0)
+    }
+
 }
 
 impl SnowApp {
+
+    pub fn new() -> SnowApp {
+
+        let config: AppConfig = confy::load("SnowApp").unwrap_or_default();
+
+        SnowApp {
+            label: "Hello snowy world!".to_owned(),
+            empty_label: "".to_owned(),
+            config,
+            progress_bar: 0.0,
+            notes: load_file("data")
+        }
+    }
 
     fn render_top_panel(&mut self, ctx: &Context, frame: &epi::Frame) {
         TopBottomPanel::top("header").show(ctx, |ui| {
@@ -143,6 +164,9 @@ impl SnowApp {
                     //add logic to the theme button
                     if theme_btn.clicked() {
                         self.config.dark_mode = !self.config.dark_mode;
+                        confy::store("SnowApp", AppConfig {
+                            dark_mode: self.config.dark_mode
+                        });
                         dbg!(self.config.dark_mode);
                     };
                 })
@@ -153,9 +177,10 @@ impl SnowApp {
     }
 
     fn render_bookmarks_panel(&mut self, ctx: &Context) {
+
         // let side panel for the note bookmarks (for now?)
         egui::SidePanel::left("left-panel!").show(ctx, |ui| {
-            ui.set_min_width(130.);
+            ui.set_min_width(140.);
 
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Bookmarks".to_owned()).color(
@@ -168,20 +193,23 @@ impl SnowApp {
             ScrollArea::vertical().show(ui, |ui| {
 
                 // iterate and add the notes
-                for i in &mut self.notes {
+                for i in 0..self.notes.len() {
                     let scroll_note = ui.add_enabled_ui(true, |ui| {
                         // sets the colors of the indent/separator to fit the current note
-                        ui.visuals_mut().widgets.noninteractive.bg_stroke = Stroke::new(2.3, i.get_note_color());
+                        ui.visuals_mut().widgets.noninteractive.bg_stroke = Stroke::new(2.3, self.notes[i].get_note_color());
 
                         ui.separator();
                         ui.add_space(3.);
                         // adds the note title
                         ui.indent("note_title", |ui| {
-                            ui.text_edit_singleline(&mut i.title)
+                            let title_edit = ui.text_edit_singleline(&mut self.notes[i].title);
+                            if title_edit.lost_focus() && ctx.input().key_pressed(eframe::egui::Key::Enter) {
+                                save_file("data", &mut self.notes);
+                            }
                         });
                         // adds partially the content for display
-                        let content = format!("{}...", i.text.char_range(0..80));
-                        ui.selectable_label(false, RichText::new(content).size(13.));
+                        let content = format!("{}...", self.notes[i].text.char_range(0..80));
+                        let note_window = ui.selectable_label(false, RichText::new(content).size(13.));
 
                         ui.add_space(5.);
                     });
@@ -221,6 +249,11 @@ impl SnowApp {
                 let slider = ui.add(Slider::new(&mut self.progress_bar, 0.0..=1.0));
                 // self.url_input(ctx, ui);
             });
+    }
+
+    fn note_window(&mut self, ctx: Context, ui: &mut Ui) {
+
+
     }
 
     // url input func for setting the file to parse

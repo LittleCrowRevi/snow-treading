@@ -3,7 +3,7 @@ use eframe::egui::Color32;
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Error, BufWriter, Write};
 
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -32,20 +32,27 @@ impl Note {
 }
 
 // create the app data dir and file
-pub fn data_path() -> PathBuf {
+pub fn data_path(file: &str) -> PathBuf {
     let mut path = dirs_2::home_dir().unwrap();
     path.push(".snow-treading");
     std::fs::create_dir_all(&path).expect("[Snow]: Could not create app dir!");
-    path.push("data.json");
+    path.push(format!("{}.json", file));
     path
 }
 
-pub fn load_notes() -> Vec<Note> {
-    let file = File::open(data_path()).expect("Could not read app data!");
+pub fn load_file(file: &str) -> Vec<Note> {
+    let file = File::open(data_path(file)).expect("Could not read app data!");
     let reader = BufReader::new(file);
     let data: Vec<Note> = serde_json::from_reader(reader).unwrap();
     println!("{:#?}", data);
     data
 
+}
+
+pub fn save_file<T: Serialize>(file: &str, data: T) -> Result<(), Error> {
+    let file = File::create(data_path(file)).expect("Unable to create/read file!");
+    let writer = BufWriter::new(file);
+    serde_json::to_writer_pretty(writer, &data);
+    Ok(())
 }
 
