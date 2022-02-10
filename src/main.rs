@@ -1,7 +1,10 @@
 use crate::app::SnowApp;
-use eframe::egui::Vec2;
+use eframe::egui::{Vec2, Visuals, Color32};
 
 mod app;
+mod note;
+
+
 
 fn main() {
     println!("Hello, world!");

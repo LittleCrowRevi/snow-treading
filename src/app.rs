@@ -3,21 +3,22 @@ use std::borrow::{Cow, Borrow};
 use serde::{Deserialize, Serialize};
 use eframe::egui::{Button, Color32, Context, Direction, FontData, FontDefinitions, FontFamily,
                    Label, Layout, RichText, TextStyle, TopBottomPanel, Ui, Visuals, FontId,
-                   TextBuffer, Stroke, Vec2, Rgba, Window, Rect, RawInput};
+                   TextBuffer, Stroke, Vec2, Rgba, Window, Rect};
 use eframe::epi::Frame;
 use eframe::epi;
 use epi::App;
-use egui::{Slider, ScrollArea};
+use egui::{ScrollArea};
 use eframe::epi::Storage;
 use std::time::Duration;
-use snow_treading::{Note, load_file, save_file};
+use snow_treading::{load_file, save_file};
+use crate::note::Note;
 
 
 // simple config struct
 #[derive(Serialize, Deserialize)]
 #[derive(Copy, Clone)]
 pub struct AppConfig {
-    dark_mode: bool,
+    pub(crate) dark_mode: bool,
     bookmark_panel: bool
 }
 
@@ -42,12 +43,14 @@ impl Default for AppConfig {
 pub struct SnowApp {
     label: String,
     // an empty label for text inputs?
-    empty_label: String,
+    pub(crate) empty_label: String,
     config: AppConfig,
     progress_bar: f32,
     notes: Vec<Note>,
     config_window: bool,
-    pub note_edit_screen: bool
+    note_edit_screen: bool,
+    open_note: bool,
+    note: Option<usize>,
 }
 
 impl App for SnowApp {
@@ -76,10 +79,10 @@ impl App for SnowApp {
             }
         }
 
-        // open the note edit window if called
-        if self.note_edit_screen {
-            self.note_window(ctx);
+        if self.open_note {
+            self.notes[self.note.unwrap()].note_window(ctx);
         }
+
 
         // call top panel render
         self.render_top_panel(ctx, frame);
@@ -93,6 +96,10 @@ impl App for SnowApp {
 
     fn setup(&mut self, ctx: &Context, _frame: &epi::Frame, _storage: Option<&dyn epi::Storage>) {
         self.configure_fonts(ctx);
+    }
+
+    fn save(&mut self, _storage: &mut dyn Storage) {
+
     }
 
     fn on_exit(&mut self) {
@@ -110,7 +117,6 @@ impl App for SnowApp {
 
 impl SnowApp {
 
-
     pub fn new() -> SnowApp{
 
         let config: AppConfig = confy::load("Snow Window").unwrap_or_default();
@@ -123,6 +129,8 @@ impl SnowApp {
             notes: load_file("data"),
             config_window: false,
             note_edit_screen: false,
+            open_note: false,
+            note: None
         }
     }
 
@@ -233,7 +241,15 @@ impl SnowApp {
                             // adds partially the content for display
                             let content = format!("{}...", self.notes[i].text.char_range(0..80));
                             // if clicking on this, opens up a pop-up for editing the note
-                            let note_window = ui.selectable_label(false, RichText::new(content).size(13.));
+                            let note_btn = ui.selectable_label(false, RichText::new(content).size(13.));
+                            if note_btn.clicked() {
+                                println!("clicked!");
+                                self.open_note = true;
+                                println!("{}", self.open_note);
+                                self.notes[i].open = true;
+                                self.note = Some(i)
+                            }
+
                             ui.add_space(5.);
                         });
 
@@ -274,46 +290,6 @@ impl SnowApp {
 
             });
     }
-
-    // TODO: Fix resizing; add fields
-    pub fn note_window(&mut self, ctx: &Context) {
-
-
-        // add the popup window for note creation
-        let window = Window::new("Edit Note")
-            .open(&mut self.note_edit_screen)
-            .collapsible(false)
-            .resizable(true)
-            .show(ctx, |ui| {
-                // locking window width
-                ui.set_max_width(300.);
-                // padding
-                ui.add_space(8.);
-                // top line title edit widget
-                ui.horizontal_top(|ui| {
-                    ui.add_space(5.);
-                    ui.text_edit_singleline(&mut self.empty_label).on_hover_text(RichText::new("Change Title"));
-                });
-                ui.add_space(15.);
-
-                // bottom panel for functional buttons
-                egui::TopBottomPanel::bottom("bottom_note")
-                    .resizable(false)
-                    .show_inside(ui, |ui| {
-                       ui.horizontal(|ui| {
-                           ui.set_height(30.);
-                           // saving button
-                           let mut save_note_btn = ui.button(RichText::new("Save").strong().heading());
-                       })
-                    });
-
-                egui::CentralPanel::default().show_inside(ui, |ui| {
-                    ui.add(Label::new("Hallo!"))
-                })
-        });
-
-    }
-
 
     fn configure_fonts(&self, ctx: &Context) {
         // create font def object

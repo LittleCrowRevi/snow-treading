@@ -3,8 +3,7 @@ use eframe::egui::Color32;
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
 use std::fs::File;
-use std::io::{BufReader, Error, BufWriter, Write};
-use eframe::epi::App;
+use std::io::{BufReader, Error, BufWriter};
 use serde::de::DeserializeOwned;
 
 
