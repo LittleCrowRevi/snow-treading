@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::fs::File;
 use std::io::{BufReader, Error, BufWriter, Write};
 use eframe::epi::App;
+use serde::de::DeserializeOwned;
 
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -41,11 +42,10 @@ pub fn data_path(file: &str) -> PathBuf {
     path
 }
 
-pub fn load_file(file: &str) -> Vec<Note> {
+pub fn load_file<T: DeserializeOwned>(file: &str) -> Vec<T> {
     let file = File::open(data_path(file)).expect("Could not read app data!");
     let reader = BufReader::new(file);
-    let data: Vec<Note> = serde_json::from_reader(reader).unwrap();
-    println!("{:#?}", data);
+    let data: Vec<T> = serde_json::from_reader(reader).unwrap();
     data
 
 }
