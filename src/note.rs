@@ -80,7 +80,7 @@ impl NoteWarp {
                     ui.add_space(5.);
                     let mut title_field = TextEdit::singleline(&mut self.notes[index].title)
                         .id(Id::new("text_file"))
-                        .margin(Vec2::new(if title_len < 40. {120. - (title_len * 2.5)} else {8.}, 5.))
+                        .margin(Vec2::new(if title_len < 43. {130. - (title_len * 2.9)} else {8.}, 5.))
                         .font(TextStyle::Heading)
                         .show(ui);
 

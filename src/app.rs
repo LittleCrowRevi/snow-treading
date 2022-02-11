@@ -179,8 +179,9 @@ impl SnowApp {
 
                 // add the closing, menu and theme button
                 ui.with_layout(Layout::right_to_left(), |ui| {
+                    ui.add_space(4.);
                     let close_btn = ui
-                        .add(Button::new(RichText::new("⛔  ").heading()))
+                        .add(Button::new(RichText::new("⛔").heading()))
                         .on_hover_text(RichText::new("Exit App"));
                     let config_btn = ui
                         .add(Button::new(
