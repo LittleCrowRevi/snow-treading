@@ -11,7 +11,9 @@ use egui::{ScrollArea};
 use eframe::epi::Storage;
 use std::time::Duration;
 use snow_treading::{load_file, save_file};
-use crate::note::Note;
+use crate::note::{Note, NoteWarp};
+use std::collections::HashMap;
+use std::hash::Hash;
 
 
 // simple config struct
@@ -45,12 +47,10 @@ pub struct SnowApp {
     // an empty label for text inputs?
     pub(crate) empty_label: String,
     config: AppConfig,
-    progress_bar: f32,
-    notes: Vec<Note>,
+    note_warp: NoteWarp,
     config_window: bool,
-    note_edit_screen: bool,
-    open_note: bool,
     note: Option<usize>,
+    confirmation_window: (bool, String)
 }
 
 impl App for SnowApp {
@@ -60,10 +60,7 @@ impl App for SnowApp {
         // create Visuals object
         // inherits all the default values from dark and light based on theme mode
         // ease of changing default visuals this way
-        let mut visuals = Visuals {
-
-            ..if self.config.dark_mode {Visuals::dark()} else {Visuals::light()}
-        };
+        let mut visuals = Visuals { ..if self.config.dark_mode {Visuals::dark()} else {Visuals::light()} };
 
 
         // change bg-color and other stuff depending onf theme mode
@@ -79,10 +76,16 @@ impl App for SnowApp {
             }
         }
 
-        if self.open_note {
-            self.notes[self.note.unwrap()].note_window(ctx);
+        if self.note_warp.bool {
+            self.note_warp.note_window(ctx, self.note.unwrap());
         }
 
+        if self.note_warp.confirmation_window.0 {
+            Window::new("saved!")
+                .collapsible(false)
+                .show(ctx, |ui| {});
+
+        }
 
         // call top panel render
         self.render_top_panel(ctx, frame);
@@ -125,12 +128,15 @@ impl SnowApp {
             label: String::from("Hallo, Snowy World"),
             empty_label: "".to_owned(),
             config,
-            progress_bar: 0.0,
-            notes: load_file("data"),
+            note_warp: NoteWarp {
+                notes: load_file("data"),
+                confirmation_window: (false, "".to_string()),
+                bool: false,
+                closing_window: false
+            },
             config_window: false,
-            note_edit_screen: false,
-            open_note: false,
-            note: None
+            note: None,
+            confirmation_window: (false, "".to_string())
         }
     }
 
@@ -225,28 +231,25 @@ impl SnowApp {
                 ScrollArea::vertical().show(ui, |ui| {
 
                     // iterate and add the notes
-                    for i in 0..self.notes.len() {
+                    for i in 0..self.note_warp.notes.len() {
                         let scroll_note = ui.add_enabled_ui(true, |ui| {
                             // sets the colors of the indent/separator to fit the current note
-                            ui.visuals_mut().widgets.noninteractive.bg_stroke = Stroke::new(2.3, self.notes[i].get_note_color());
+                            ui.visuals_mut().widgets.noninteractive.bg_stroke = Stroke::new(2.3, self.note_warp.notes[i].get_note_color());
                             ui.separator();
                             ui.add_space(3.);
                             // adds the note title
                             ui.indent("note_title", |ui| {
-                                let title_edit = ui.text_edit_singleline(&mut self.notes[i].title);
+                                let title_edit = ui.text_edit_singleline(&mut self.note_warp.notes[i].title);
                                 if title_edit.lost_focus() && ctx.input().key_pressed(eframe::egui::Key::Enter) {
-                                    save_file("data", &mut self.notes);
+                                    save_file("data", &mut self.note_warp.notes);
                                 }
                             });
                             // adds partially the content for display
-                            let content = format!("{}...", self.notes[i].text.char_range(0..80));
+                            let content = format!("{}...", self.note_warp.notes[i].text.char_range(0..80));
                             // if clicking on this, opens up a pop-up for editing the note
                             let note_btn = ui.selectable_label(false, RichText::new(content).size(13.));
                             if note_btn.clicked() {
-                                println!("clicked!");
-                                self.open_note = true;
-                                println!("{}", self.open_note);
-                                self.notes[i].open = true;
+                                self.note_warp.bool = true;
                                 self.note = Some(i)
                             }
 
@@ -284,7 +287,6 @@ impl SnowApp {
                             .heading()
                             .size(15.)));
                     if add_note_btn.clicked() {
-                        self.note_edit_screen = true;
                     }
                 });
 
