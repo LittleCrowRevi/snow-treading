@@ -14,6 +14,7 @@ use snow_treading::{load_file, save_file};
 use crate::note::{Note, NoteWarp};
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::ops::Range;
 
 
 // simple config struct
@@ -79,6 +80,7 @@ impl App for SnowApp {
         if self.note_warp.bool {
             self.note_warp.note_window(ctx, self.note.unwrap());
         }
+
 
         if self.note_warp.confirmation_window.0 {
             Window::new("saved!")
@@ -245,15 +247,16 @@ impl SnowApp {
                                     save_file("data", &mut self.note_warp.notes);
                                 }
                             });
-                            // adds partially the content for display
-                            let content = format!("{}...", self.note_warp.notes[i].text.char_range(0..80));
+                            // adds partially the content for displa
+                            let mut text = self.note_warp.notes[i].text.clone();
+                            text.retain(|c| c != '\n');
+                            let content = format!("{}...", text.char_range(0..80));
                             // if clicking on this, opens up a pop-up for editing the note
                             let note_btn = ui.selectable_label(false, RichText::new(content).size(13.));
                             if note_btn.clicked() {
                                 self.note_warp.bool = true;
                                 self.note = Some(i)
                             }
-
                             ui.add_space(5.);
                         });
 
@@ -287,7 +290,16 @@ impl SnowApp {
                             .strong()
                             .heading()
                             .size(15.)));
+                    // TODO: random id
                     if add_note_btn.clicked() {
+                        self.note_warp.bool = true;
+                        let new_note = Note::new(
+                            1234,
+                            "".to_string(),
+                            "".to_string(),
+                            [0, 0, 0]);
+                        self.note_warp.notes.push(new_note);
+                        self.note = Some(self.note_warp.notes.len() - 1);
                     }
                 });
 

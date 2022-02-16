@@ -29,8 +29,6 @@ pub struct Note {
 
 impl Note {
     pub fn new(id: i32, text: String, title: String, color: [u8; 3]) -> Self {
-        let title_len = title.len();
-        let text_len = text.len();
         Note {
             id,
             title,
