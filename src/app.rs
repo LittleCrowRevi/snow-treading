@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use eframe::egui::{Button, Color32, Context, Direction, FontData, FontDefinitions, FontFamily,
                    Label, Layout, RichText, TextStyle, TopBottomPanel, Ui, Visuals, FontId,
                    TextBuffer, Stroke, Vec2, Rgba, Window, Rect};
-use eframe::epi::Frame;
+use eframe::epi::{Frame, DummyStorage};
 use eframe::epi;
 use epi::App;
 use egui::{ScrollArea};
@@ -15,6 +15,9 @@ use crate::note::{Note, NoteWarp};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Range;
+use async_trait::async_trait;
+use reqwest::Client;
+
 
 
 // simple config struct
@@ -51,7 +54,7 @@ pub struct SnowApp {
     note_warp: NoteWarp,
     config_window: bool,
     note: Option<usize>,
-    confirmation_window: (bool, String)
+    confirmation_window: (bool, String),
 }
 
 impl App for SnowApp {
@@ -89,6 +92,10 @@ impl App for SnowApp {
 
         }
 
+        if self.config_window {
+            self.config_window(ctx);
+        }
+
         // call top panel render
         self.render_top_panel(ctx, frame);
 
@@ -104,10 +111,11 @@ impl App for SnowApp {
     }
 
     fn save(&mut self, _storage: &mut dyn Storage) {
-
+        save_file("data", &self.note_warp.notes);
     }
 
     fn on_exit(&mut self) {
+        save_file("data", &self.note_warp.notes);
     }
 
     fn name(&self) -> &str {
@@ -138,7 +146,7 @@ impl SnowApp {
             },
             config_window: false,
             note: None,
-            confirmation_window: (false, "".to_string())
+            confirmation_window: (false, "".to_string()),
         }
     }
 
@@ -202,6 +210,12 @@ impl SnowApp {
                         dbg!("Closing app!");
                         frame.quit();
                     };
+
+                    //config btn logic
+                    if config_btn.clicked() {
+                        self.config_window = !self.config_window;
+                        dbg!(self.config_window);
+                    }
 
                     //add logic to the theme button
                     if theme_btn.clicked() {
@@ -294,7 +308,7 @@ impl SnowApp {
                     if add_note_btn.clicked() {
                         self.note_warp.bool = true;
                         let new_note = Note::new(
-                            1234,
+                            rand::random::<i32>(),
                             "".to_string(),
                             "".to_string(),
                             [0, 0, 0]);
@@ -304,6 +318,46 @@ impl SnowApp {
                 });
 
             });
+    }
+
+    pub fn config_window(&mut self, ctx: &Context) {
+
+        let window = Window::new("configuration")
+            .title_bar(false)
+            .resizable(false)
+            .collapsible(false);
+        let response = window.show(ctx, |ui| {
+
+            ui.set_max_width(200.);
+            ui.set_max_height(100.);
+
+            egui::menu::bar(ui, |ui| {
+                ui.with_layout(Layout::left_to_right(), |ui| {
+                    ui.label("configuration");
+                    ui.add_space(ui.available_width() - 10.);
+                    let close_btn = ui.add(Button::new("X"));
+
+                    if close_btn.clicked() {
+                        self.config_window = false;
+                    }
+                });
+
+            });
+            ui.separator();
+
+            egui::TopBottomPanel::bottom("bottom").show_inside(ui, |ui| {
+            });
+            egui::CentralPanel::default()
+                .show_inside(ui, |ui| {
+                    ui.set_max_height(50.);
+                    ui.set_max_width(80.);
+                    ui.horizontal(|ui| {
+                        ui.add_space(10.);
+                        let drive_btn = ui.add(Button::new("Google Drive"));
+                    });
+                });
+
+        });
     }
 
     fn configure_fonts(&self, ctx: &Context) {

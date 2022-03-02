@@ -1,11 +1,15 @@
+mod cloud;
+
 use chrono::{Local};
-use eframe::egui::Color32;
+use eframe::egui::{Color32, Context, Window, Vec2, Button};
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
 use std::fs::File;
 use std::io::{BufReader, Error, BufWriter};
 use serde::de::DeserializeOwned;
 
+#[macro_use]
+extern crate log;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Note {
@@ -49,11 +53,46 @@ pub fn load_file<T: DeserializeOwned>(file: &str) -> Vec<T> {
 
 }
 
-pub fn save_file<T: Serialize>(file: &str, data: T) -> Result<(), Error> {
-    let file = File::create(data_path(file)).expect("Unable to create/read file!");
+pub fn save_file<T: Serialize>(file_name: &str, data: T) -> Result<(), Error> {
+    let file = File::create(data_path(file_name)).expect("Unable to create/read file!");
     let writer = BufWriter::new(file);
     serde_json::to_writer_pretty(writer, &data);
+    info!("saved '{}' to '{}'!", file_name, "Dummy for where its stored - e.g Local, Cloud etc");
     Ok(())
+}
+
+pub fn config_window(ctx: &Context, mut open: &mut bool) {
+
+    let window = Window::new("configuration")
+        .title_bar(false)
+        .collapsible(false);
+    let response = window.show(ctx, |ui| {
+
+        ui.set_max_width(80.);
+
+        egui::TopBottomPanel::top("config_top").show_inside(ui, |ui| {
+            ui.label("configuration");
+            let close_btn = ui.add(Button::new("X"));
+            if close_btn.clicked() {
+
+            }
+        });
+        egui::TopBottomPanel::bottom("bottom").show_inside(ui, |ui| {
+
+        });
+        egui::CentralPanel::default()
+            .show_inside(ui, |ui| {
+                ui.set_max_height(50.);
+                ui.set_max_width(80.);
+                ui.horizontal(|ui| {
+                    ui.add_space(10.);
+                    let drive_btn = ui.add(Button::new("Google Drive"));
+                });
+
+            });
+
+
+    });
 }
 
 
